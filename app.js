@@ -27,7 +27,7 @@ let state = {
   selectedStudent: null,
   lastUpdated: null,
   isLoading: false,
-  theme: localStorage.getItem('gradebook_theme') || 'dark'
+  theme: localStorage.getItem('gradebook_theme_ugm') || 'light'
 };
 
 // Column Schema Definitions (Week 1 - 7 + UTS)
@@ -171,7 +171,7 @@ function initEventListeners() {
   elements.btnThemeToggle.addEventListener('click', () => {
     state.theme = state.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', state.theme);
-    localStorage.setItem('gradebook_theme', state.theme);
+    localStorage.setItem('gradebook_theme_ugm', state.theme);
     showToast(`Beralih ke tema ${state.theme === 'dark' ? 'Gelap' : 'Terang'}`);
   });
 
@@ -184,8 +184,10 @@ function initEventListeners() {
     });
   });
 
-  // Export CSV
-  elements.btnExport.addEventListener('click', exportToCsv);
+  // Export CSV (optional)
+  if (elements.btnExport) {
+    elements.btnExport.addEventListener('click', exportToCsv);
+  }
 
   // Search input
   elements.searchInput.addEventListener('input', (e) => {
@@ -799,6 +801,7 @@ function formatScoreBadge(gradeInfo) {
   let cls = 'score-empty';
   if (score >= 85) cls = 'score-high';
   else if (score >= 70) cls = 'score-medium';
+  else if (score >= 50) cls = 'score-ok';
   else cls = 'score-low';
 
   return `<span class="score-pill ${cls}">${score}</span>`;
@@ -808,6 +811,7 @@ function getAverageClass(avg) {
   if (avg === null || isNaN(avg)) return 'score-empty';
   if (avg >= 85) return 'score-high';
   if (avg >= 70) return 'score-medium';
+  if (avg >= 50) return 'score-ok';
   return 'score-low';
 }
 

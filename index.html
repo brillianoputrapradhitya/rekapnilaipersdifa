@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,30 +8,43 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20260906-2">
+  <link rel="stylesheet" href="styles.css?v=20260909-ugm">
 </head>
 <body>
-  <!-- Background Glow Accents -->
+  <!-- Background Glow Accents (UGM Navy, Royal Blue & Gold Aurora) -->
   <div class="glow-bg glow-1"></div>
   <div class="glow-bg glow-2"></div>
+  <div class="glow-bg glow-3"></div>
+  <div class="glow-bg glow-4"></div>
 
   <!-- Header Section -->
   <header class="app-header">
     <div class="header-container">
       <div class="brand-section">
-        <div class="brand-icon">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
-            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
-          </svg>
+        <div class="brand-icon-wrapper">
+          <div class="brand-icon" title="Universitas Gadjah Mada - Portal Akademik Nilai">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+              <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+            </svg>
+          </div>
+          <div class="brand-glow-ring"></div>
         </div>
         <div class="brand-meta">
           <div class="badge-row">
+            <span class="badge badge-ugm">
+              <span class="ugm-dot"></span>UGM &bull; DTETI
+            </span>
             <span class="badge badge-primary">Persamaan Diferensial (Kelas A)</span>
-            <span class="badge badge-outline" id="dosenBadge">Dosen: Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.</span>
+            <span class="badge badge-outline" id="dosenBadge">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              Dosen: Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.
+            </span>
           </div>
           <h1 class="header-title">Rekap Nilai Harian Persamaan Diferensial A 2026</h1>
-          <p class="header-subtitle">Pemantauan nilai tugas harian (In-Class Problem & Exit Ticket) tersinkronisasi otomatis</p>
+          <p class="header-subtitle">
+            <span class="subtitle-bullet">&bull;</span> Pemantauan tugas harian (In-Class Problem & Exit Ticket) tersinkronisasi otomatis dengan Google Spreadsheet
+          </p>
         </div>
       </div>
 
@@ -45,14 +58,6 @@
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
           <span class="btn-label">Refresh</span>
-        </button>
-        <button id="btnExport" class="btn btn-secondary" title="Unduh Data CSV">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          <span class="btn-label">Export CSV</span>
         </button>
         <button id="btnThemeToggle" class="btn btn-icon" title="Ganti Tema Gelap/Terang" aria-label="Toggle Theme">
           <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -78,48 +83,64 @@
   <main class="main-content">
     <!-- Quick Analytics Stats Row -->
     <section class="stats-grid" id="statsGrid">
-      <div class="stat-card">
+      <div class="stat-card stat-card-students">
         <div class="stat-header">
           <span class="stat-title">Total Mahasiswa</span>
           <div class="stat-icon icon-blue">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           </div>
         </div>
-        <div class="stat-value" id="statTotalStudents">-</div>
+        <div class="stat-value-container">
+          <div class="stat-value" id="statTotalStudents">-</div>
+          <span class="stat-chip chip-blue">Mahasiswa</span>
+        </div>
         <div class="stat-desc">Terdaftar aktif di kelas</div>
+        <div class="stat-ambient-glow"></div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card stat-card-weeks">
         <div class="stat-header">
           <span class="stat-title">Pekan Aktif</span>
-          <div class="stat-icon icon-purple">
+          <div class="stat-icon icon-gold">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
           </div>
         </div>
-        <div class="stat-value" id="statActiveWeeks">-</div>
+        <div class="stat-value-container">
+          <div class="stat-value" id="statActiveWeeks">-</div>
+          <span class="stat-chip chip-gold">Sedang Berjalan</span>
+        </div>
         <div class="stat-desc" id="statActiveWeeksDesc">Dari total 7 Pekan + UTS</div>
+        <div class="stat-ambient-glow"></div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card stat-card-avg">
         <div class="stat-header">
           <span class="stat-title">Rata-rata Kelas</span>
           <div class="stat-icon icon-green">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
           </div>
         </div>
-        <div class="stat-value" id="statClassAverage">-</div>
+        <div class="stat-value-container">
+          <div class="stat-value" id="statClassAverage">-</div>
+          <span class="stat-chip chip-green">Sangat Baik</span>
+        </div>
         <div class="stat-desc">Seluruh tugas terisi</div>
+        <div class="stat-ambient-glow"></div>
       </div>
 
-      <div class="stat-card">
+      <div class="stat-card stat-card-submissions">
         <div class="stat-header">
           <span class="stat-title">Total Tugas Tersubmit</span>
           <div class="stat-icon icon-amber">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
           </div>
         </div>
-        <div class="stat-value" id="statTotalSubmissions">-</div>
+        <div class="stat-value-container">
+          <div class="stat-value" id="statTotalSubmissions">-</div>
+          <span class="stat-chip chip-amber">Terkumpul</span>
+        </div>
         <div class="stat-desc" id="statSubmissionRate">Tingkat pengumpulan: -%</div>
+        <div class="stat-ambient-glow"></div>
       </div>
     </section>
 
@@ -131,7 +152,8 @@
           <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
-          <input type="text" id="searchInput" placeholder="Cari berdasarkan Nama atau NIM... (tekan '/' untuk cari)" autocomplete="off">
+          <input type="text" id="searchInput" placeholder="Cari berdasarkan Nama atau NIM mahasiswa..." autocomplete="off">
+          <span class="search-shortcut" id="searchShortcut" title="Pencarian Cepat"><kbd>/</kbd></span>
           <button id="btnClearSearch" class="btn-clear hidden" title="Hapus Pencarian">&times;</button>
         </div>
 
@@ -182,13 +204,29 @@
       <div class="legend-badges">
         <span class="legend-item"><span class="score-pill score-high">85-100</span> Sangat Baik</span>
         <span class="legend-item"><span class="score-pill score-medium">70-84</span> Baik</span>
-        <span class="legend-item"><span class="score-pill score-low">&lt;70</span> Perlu Perhatian</span>
+        <span class="legend-item"><span class="score-pill score-ok">50-69</span> OK</span>
+        <span class="legend-item"><span class="score-pill score-low">&lt;50</span> Uh</span>
         <span class="legend-item"><span class="score-pill score-empty">-</span> Belum / Kosong</span>
       </div>
     </div>
 
     <!-- Gradebook Table Container -->
     <section class="table-card">
+      <div class="table-toolbar">
+        <div class="table-toolbar-left">
+          <div class="table-toolbar-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+          </div>
+          <div>
+            <h2 class="table-toolbar-title">Matriks Penilaian Tugas Harian Mahasiswa</h2>
+            <p class="table-toolbar-sub">Klik baris mahasiswa untuk membuka kartu nilai individual lengkap</p>
+          </div>
+        </div>
+        <div class="table-toolbar-right">
+          <span class="toolbar-live-badge"><span class="toolbar-dot"></span>Sinkron Live Google Sheets</span>
+        </div>
+      </div>
+
       <div class="table-responsive" id="tableContainer">
         <div class="loading-state" id="loadingState">
           <div class="spinner"></div>
@@ -271,8 +309,11 @@
   <!-- Footer -->
   <footer class="app-footer">
     <div class="footer-container">
+      <div class="footer-ugm-badge">
+        <span class="ugm-pill-footer">Universitas Gadjah Mada &bull; DTETI (Teknik Elektro)</span>
+      </div>
       <p>Data tersinkronisasi langsung dari <a href="https://docs.google.com/spreadsheets/d/1ALjtCw64npBQmjibmViM9kluwvz4jPrPrM3OVmNhfSM/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Google Spreadsheet Resmi</a>.</p>
-      <p class="footer-sub">Portal Nilai Harian Mahasiswa &bull; Dibuat untuk pemantauan akademik terbuka</p>
+      <p class="footer-sub">Portal Pemantauan Nilai Harian Mahasiswa &bull; Persamaan Diferensial A 2026</p>
     </div>
   </footer>
 
