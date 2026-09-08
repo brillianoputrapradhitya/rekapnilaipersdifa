@@ -215,6 +215,12 @@ body {
   border: 1px solid var(--border-color);
 }
 
+#dosenBadge {
+  text-transform: none;
+  font-size: 0.775rem;
+  letter-spacing: normal;
+}
+
 .header-title {
   font-size: 1.35rem;
   font-weight: 800;

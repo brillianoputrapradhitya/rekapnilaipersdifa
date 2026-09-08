@@ -369,6 +369,38 @@ function parseCsvData(csvText) {
   const activeTasks = new Set();
   let lecturer = null;
 
+  // 1. Detect lecturer from rows above the table header (e.g. Header table / Kop)
+  for (let i = 0; i < headerRowIndex; i++) {
+    const row = rows[i];
+    if (!row) continue;
+
+    const dosenIdx = row.findIndex(c => c && c.trim().toLowerCase() === 'dosen');
+    if (dosenIdx !== -1) {
+      // If cell below has the name
+      if (rows[i + 1] && rows[i + 1][dosenIdx] && rows[i + 1][dosenIdx].trim()) {
+        const dName = rows[i + 1][dosenIdx].trim();
+        const dNim = rows[i + 1][dosenIdx + 1] ? rows[i + 1][dosenIdx + 1].trim() : '-';
+        lecturer = { name: dName, nim: dNim };
+        break;
+      }
+      // If next column in same row has the name
+      if (row[dosenIdx + 1] && row[dosenIdx + 1].trim()) {
+        lecturer = { name: row[dosenIdx + 1].trim(), nim: '-' };
+        break;
+      }
+    }
+
+    // Direct check for academic titles (Dr., Prof., Ir., Pak) in rows above header
+    for (let c = 0; c < row.length; c++) {
+      const cell = (row[c] || '').trim();
+      if (/^(dr\.|prof\.|ir\.|pak\s)/i.test(cell) && !cell.toLowerCase().includes('penilaian')) {
+        lecturer = { name: cell, nim: row[c + 1] ? row[c + 1].trim() : '-' };
+        break;
+      }
+    }
+    if (lecturer) break;
+  }
+
   studentRows.forEach(row => {
     if (!row || row.length < 3) return;
     const noRaw = row[0];
@@ -377,9 +409,11 @@ function parseCsvData(csvText) {
 
     if (!name && !nim) return;
 
-    // Detect if this row is the lecturer/admin (e.g. Pak Wijaya)
+    // Detect if this row is the lecturer/admin (e.g. Pak Wijaya) if not found earlier
     if (nim === '-' || (name && name.toLowerCase().includes('pak '))) {
-      lecturer = { name, nim };
+      if (!lecturer) {
+        lecturer = { name, nim };
+      }
       return; // Skip from student listing
     }
 
@@ -867,105 +901,108 @@ function exportToCsv() {
    ========================================================================== */
 function loadFallbackSnapshot() {
   // Snapshot from Google Sheet fetched earlier to guarantee instant demo even without internet
-  const fallbackCsv = `No,Nama,NIM,Email,Admin,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,UTS
-1,Jovan Nathanael Gondomulyono,22/494761/TK/54307,,FALSE,,,,,,,,,,,,,,,
-2,Mochamad Zaky Pradana,22/499965/TK/54779,,FALSE,,,,,,,,,,,,,,,
-3,Muhammad Zaki Farhan,22/505281/TK/55283,,FALSE,,,,,,,,,,,,,,,
-4,Gamma Nasim,23/515518/TK/56679,,FALSE,,,,,,,,,,,,,,,
-5,Fahmi Irfan Faiz,23/520563/TK/57396,,FALSE,,,,,,,,,,,,,,,
-6,Halomoan Lyon Gregorius Haumahu,23/522182/TK/57614,,FALSE,,,,,,,,,,,,,,,
-7,A Bill Haq Adiluhung,23/522324/TK/57646,,FALSE,,,,,,,,,,,,,,,
-8,ALVITO RAMADHANY RAFLI,24/538017/TK/59660,,FALSE,,,,,,,,,,,,,,,
-9,Adrian Bagas Ananto,25/555366/TK/62614,,FALSE,,,,,,,,,,,,,,,
-10,Shidqi Noor Faadhil,25/555418/TK/62623,,FALSE,,,,,,,,,,,,,,,
-11,Dhali' Rozan Fadhaillah,25/555492/TK/62630,,FALSE,,,,,,,,,,,,,,,
-12,Muhammad Fayyazh Athhar Setiadi,25/555656/TK/62653,,FALSE,,,,,,,,,,,,,,,
-13,Mangihut Tua Simbolon,25/556059/TK/62705,,FALSE,,,,,,,,,,,,,,,
-14,Shidiq Dzakwan Ghifari,25/556082/TK/62711,,FALSE,,,,,,,,,,,,,,,
-15,Zulfina Fauziyah Rahmah,25/556107/TK/62717,,FALSE,,,,,,,,,,,,,,,
-16,Yohana Novena Anggraini,25/556156/TK/62723,,FALSE,,,,,,,,,,,,,,,
-17,Faiz Izzuddin,25/556179/TK/62726,,FALSE,,,,,,,,,,,,,,,
-18,Ihsannabigh Mayka Iskandar,25/556261/TK/62738,,FALSE,,,,,,,,,,,,,,,
-19,Ramadani Fadhlurrahman,25/556288/TK/62743,,FALSE,,,,,,,,,,,,,,,
-20,Ammar Ameera Ahmad,25/556416/TK/62758,,FALSE,,,,,,,,,,,,,,,
-21,Muhammad Althaf Adzaki,25/556435/TK/62763,,FALSE,,,,,,,,,,,,,,,
-22,Ibrahim Hanif Roland Saputra,25/556447/TK/62765,,FALSE,,,,,,,,,,,,,,,
-23,Fadhel Muhammad Falafi,25/556452/TK/62767,,FALSE,,,,,,,,,,,,,,,
-24,Nazma Desyana Putri,25/556501/TK/62771,,FALSE,,,,,,,,,,,,,,,
-25,Hikmal Abrar Ozaki,25/556519/TK/62776,,FALSE,,,,,,,,,,,,,,,
-26,Enni Ahsanu Nadiyya,25/556648/TK/62794,,FALSE,,,,,,,,,,,,,,,
-27,Daniel Panggabean,25/556793/TK/62810,,FALSE,,,,,,,,,,,,,,,
-28,Evandel Mendrofa,25/557078/TK/62862,,FALSE,,,,,,,,,,,,,,,
-29,Hillary Kayla Dewijana Muskita,25/557196/TK/62884,,FALSE,,,,,,,,,,,,,,,
-30,Rosa Cahyanti Dewi,25/557347/TK/62913,,FALSE,,,,,,,,,,,,,,,
-31,Mahastya Eijksan Aydin,25/557548/TK/62952,,FALSE,,,,,,,,,,,,,,,
-32,Diara Putra Mahenda,25/557577/TK/62961,,FALSE,,,,,,,,,,,,,,,
-33,Saif Arrahman,25/557735/TK/62983,,FALSE,,,,,,,,,,,,,,,
-34,Gede Narendra Pangayoman,25/557846/TK/62999,,FALSE,,,,,,,,,,,,,,,
-35,Muhamad Amri Riza Fadhilah,25/557944/TK/63010,,FALSE,,,,,,,,,,,,,,,
-36,Muhammad Nabeel Alhadi,25/558052/TK/63027,,FALSE,-,70,80,-,-,90,,,,,,,,,
-37,Brilliano Putra Pradhitya,25/558108/TK/63033,,TRUE,-,100,100,-,-,100,,,,,,,,,
-38,Kanzia Ammar Rafif Tabarriza,25/559506/TK/63148,,FALSE,,,,,,,,,,,,,,,
-39,Raissha Hakim Murestyanti,25/559519/TK/63151,,FALSE,,,,,,,,,,,,,,,
-40,Qowiyyul Fahmi,25/559558/TK/63163,,FALSE,,,,,,,,,,,,,,,
-41,Imaduddin Qawim Al Hakim,25/559601/TK/63169,,FALSE,,,,,,,,,,,,,,,
-42,Wildan Daffy Ramadhan,25/559671/TK/63181,,FALSE,,,,,,,,,,,,,,,
-43,Cindy Fatikasari,25/559707/TK/63186,,FALSE,,,,,,,,,,,,,,,
-44,Ramos Edward Jonathan Sinaga,25/559742/TK/63193,,FALSE,,,,,,,,,,,,,,,
-45,Muhammad Arif Al Farizi,25/559771/TK/63196,,FALSE,,,,,,,,,,,,,,,
-46,Afnan Resa Al Fiqri,25/559839/TK/63204,,FALSE,,,,,,,,,,,,,,,
-47,Faiza Naufalia Ghaisani,25/559869/TK/63209,,FALSE,,,,,,,,,,,,,,,
-48,V. Novendria Ananda Putra,25/559918/TK/63215,,FALSE,,,,,,,,,,,,,,,
-49,Farid Nur Ramadhan Abidin,25/559987/TK/63228,,FALSE,,,,,,,,,,,,,,,
-50,Muhammad Kevin Setiko,25/560376/TK/63287,,FALSE,,,,,,,,,,,,,,,
-51,Muhammad Haykal Faizul Haq,25/560398/TK/63292,,FALSE,,,,,,,,,,,,,,,
-52,Yuma Binar Aryaputra,25/560457/TK/63303,,FALSE,,,,,,,,,,,,,,,
-53,Jason Nathanael Indra,25/560513/TK/63310,,FALSE,,,,,,,,,,,,,,,
-54,Raisah Kirana Candra,25/560843/TK/63354,,FALSE,,,,,,,,,,,,,,,
-55,Sulthan Athaullah,25/560921/TK/63362,,FALSE,,,,,,,,,,,,,,,
-56,Muhammad Azad Moqtafin,25/560953/TK/63368,,FALSE,,,,,,,,,,,,,,,
-57,Ekevu Zende,25/561062/TK/63382,,FALSE,,,,,,,,,,,,,,,
-58,Muhammad Khalif Zaidan As-Sakhi,25/561072/TK/63383,,FALSE,,,,,,,,,,,,,,,
-59,Alifia Melannisa Az-Zahra,25/561122/TK/63390,,FALSE,,,,,,,,,,,,,,,
-60,Faiz Daffa Mahardhika,25/561136/TK/63391,,FALSE,,,,,,,,,,,,,,,
-61,Mahraufan Shaka Al Fattah,25/561384/TK/63419,,FALSE,,,,,,,,,,,,,,,
-62,Abdillah Kamal Azizy,25/561425/TK/63428,,FALSE,,,,,,,,,,,,,,,
-63,Melvin Efendy,25/561797/TK/63495,,FALSE,,,,,,,,,,,,,,,
-64,Reskha Dwi Oktaviani,25/561883/TK/63510,,FALSE,,,,,,,,,,,,,,,
-65,Muhammad Rafa Ramadhani,25/562068/TK/63534,,FALSE,,,,,,,,,,,,,,,
-66,Tsaqif Abdurrahim,25/562157/TK/63543,,FALSE,,,,,,,,,,,,,,,
-67,GALIH AGUNG NUGROHO,25/563683/TK/63565,,FALSE,,,,,,,,,,,,,,,
-68,Ghiyas Syafiq Rizqian,25/563715/TK/63569,,FALSE,,,,,,,,,,,,,,,
-69,ALI RIDWAN,25/563828/TK/63585,,FALSE,,,,,,,,,,,,,,,
-70,Daryl Immanuel,25/563840/TK/63587,,FALSE,,,,,,,,,,,,,,,
-71,MUHAMAD FAUZAN,25/563862/TK/63590,,FALSE,,,,,,,,,,,,,,,
-72,Azman Zidni Fadhilah,25/564023/TK/63612,,FALSE,,,,,,,,,,,,,,,
-73,DZAKWAN MUNTASHIR,25/564144/TK/63634,,FALSE,,,,,,,,,,,,,,,
-74,Naufal Ramadhan Putra Kurnia,25/564503/TK/63679,,FALSE,,,,,,,,,,,,,,,
-75,ANDHIKA FEBRIAN PRATAMA,25/564559/TK/63687,,FALSE,,,,,,,,,,,,,,,
-76,Raka Arya Kusuma,25/564834/TK/63713,,FALSE,,,,,,,,,,,,,,,
-77,PATRICK STEFANUS MANIK,25/564889/TK/63718,,FALSE,,,,,,,,,,,,,,,
-78,Janu Rafi Pramudito,25/564925/TK/63721,,FALSE,,,,,,,,,,,,,,,
-79,NAUFAL ALHAFIZH,25/565429/TK/63772,,FALSE,,,,,,,,,,,,,,,
-80,Diptya Aditya Dhyaksa,25/565553/TK/63793,,FALSE,,,,,,,,,,,,,,,
-81,Muhammad Syafiq Yusuf,25/565855/TK/63829,,FALSE,,,,,,,,,,,,,,,
-82,Rizky Emirsanie,25/565895/TK/63835,,FALSE,,,,,,,,,,,,,,,
-83,Arsa Putra Randrio,25/565962/TK/63842,,FALSE,,,,,,,,,,,,,,,
-84,Yohanes Wisanggeni Cahyo Kumolo,25/566044/TK/63854,,FALSE,,,,,,,,,,,,,,,
-85,Muhammad Abid Hakim,25/566226/TK/63879,,FALSE,,,,,,,,,,,,,,,
-86,FAJWA NUR AZZAHRA,25/566510/TK/63902,,FALSE,,,,,,,,,,,,,,,
-87,Muhammad Azarya Sanjaya,25/566678/TK/63917,,FALSE,,,,,,,,,,,,,,,
-88,MUHAMMAD AQIL SYAUQI NUGRAHAPUTRA,25/567268/TK/63994,,FALSE,,,,,,,,,,,,,,,
-89,Nehan Parsa Purnomo,25/567290/TK/63998,,FALSE,,,,,,,,,,,,,,,
-90,Nafi Hasan Rais,25/567304/TK/63999,,FALSE,,,,,,,,,,,,,,,
-91,Faqi Ammar Muhtasyam,25/567489/TK/64026,,FALSE,,,,,,,,,,,,,,,
-92,Ravka Maheswara Perdana,25/567497/TK/64027,,FALSE,,,,,,,,,,,,,,,
-93,Isnanda Hidayati Nasira,25/567792/TK/64048,,FALSE,,,,,,,,,,,,,,,
-94,Aqila Kresna Arrafi,25/568316/TK/64101,,FALSE,,,,,,,,,,,,,,,
-95,Florencia Budiasih,25/568523/TK/64128,,FALSE,,,,,,,,,,,,,,,
-96,MUHAMMAD ZAHIR ALI,25/568649/TK/64138,,FALSE,,,,,,,,,,,,,,,
-97,GHALIB ABID FARREL,25/569025/TK/64161,,FALSE,,,,,,,,,,,,,,,
-98,Pak Wijaya ,-,,TRUE,,,,,,,,,,,,,,,`;
+  const fallbackCsv = `,PENILAIAN PERSAMAAN DIFFERENSIAL A,,,,,,,,,,,,,,,,,,
+,Dosen,,Email,Admin,,,,,,,,,,,,,,,
+,"Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.",-,,TRUE,,,,,,,,,,,,,,,
+,,,,,Week 1,,Week 2,,Week 3,,Week 4,,Week 5,,Week 6,,Week 7,,
+No,Nama,NIM,Email,Admin,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,UTS
+1,Jovan Nathanael Gondomulyono,22/494761/TK/54307,,FALSE,-,,,-,-,,,,,,,,,,
+2,Mochamad Zaky Pradana,22/499965/TK/54779,,FALSE,-,,,-,-,,,,,,,,,,
+3,Muhammad Zaki Farhan,22/505281/TK/55283,,FALSE,-,,,-,-,,,,,,,,,,
+4,Gamma Nasim,23/515518/TK/56679,,FALSE,-,,,-,-,,,,,,,,,,
+5,Fahmi Irfan Faiz,23/520563/TK/57396,,FALSE,-,,,-,-,,,,,,,,,,
+6,Halomoan Lyon Gregorius Haumahu,23/522182/TK/57614,,FALSE,-,,,-,-,,,,,,,,,,
+7,A Bill Haq Adiluhung,23/522324/TK/57646,,FALSE,-,,,-,-,,,,,,,,,,
+8,ALVITO RAMADHANY RAFLI,24/538017/TK/59660,,FALSE,-,,,-,-,,,,,,,,,,
+9,Adrian Bagas Ananto,25/555366/TK/62614,,FALSE,-,,,-,-,,,,,,,,,,
+10,Shidqi Noor Faadhil,25/555418/TK/62623,,FALSE,-,,,-,-,,,,,,,,,,
+11,Dhali' Rozan Fadhaillah,25/555492/TK/62630,,FALSE,-,,,-,-,,,,,,,,,,
+12,Muhammad Fayyazh Athhar Setiadi,25/555656/TK/62653,,FALSE,-,,,-,-,,,,,,,,,,
+13,Mangihut Tua Simbolon,25/556059/TK/62705,,FALSE,-,,,-,-,,,,,,,,,,
+14,Shidiq Dzakwan Ghifari,25/556082/TK/62711,,FALSE,-,,,-,-,,,,,,,,,,
+15,Zulfina Fauziyah Rahmah,25/556107/TK/62717,,FALSE,-,,,-,-,,,,,,,,,,
+16,Yohana Novena Anggraini,25/556156/TK/62723,,FALSE,-,,,-,-,,,,,,,,,,
+17,Faiz Izzuddin,25/556179/TK/62726,,FALSE,-,,,-,-,,,,,,,,,,
+18,Ihsannabigh Mayka Iskandar,25/556261/TK/62738,,FALSE,-,,,-,-,,,,,,,,,,
+19,Ramadani Fadhlurrahman,25/556288/TK/62743,,FALSE,-,,,-,-,,,,,,,,,,
+20,Ammar Ameera Ahmad,25/556416/TK/62758,,FALSE,-,,,-,-,,,,,,,,,,
+21,Muhammad Althaf Adzaki,25/556435/TK/62763,,FALSE,-,,,-,-,,,,,,,,,,
+22,Ibrahim Hanif Roland Saputra,25/556447/TK/62765,,FALSE,-,,,-,-,,,,,,,,,,
+23,Fadhel Muhammad Falafi,25/556452/TK/62767,,FALSE,-,,,-,-,,,,,,,,,,
+24,Nazma Desyana Putri,25/556501/TK/62771,,FALSE,-,,,-,-,,,,,,,,,,
+25,Hikmal Abrar Ozaki,25/556519/TK/62776,,FALSE,-,,,-,-,,,,,,,,,,
+26,Enni Ahsanu Nadiyya,25/556648/TK/62794,,FALSE,-,,,-,-,,,,,,,,,,
+27,Daniel Panggabean,25/556793/TK/62810,,FALSE,-,,,-,-,,,,,,,,,,
+28,Evandel Mendrofa,25/557078/TK/62862,,FALSE,-,,,-,-,,,,,,,,,,
+29,Hillary Kayla Dewijana Muskita,25/557196/TK/62884,,FALSE,-,,,-,-,,,,,,,,,,
+30,Rosa Cahyanti Dewi,25/557347/TK/62913,,FALSE,-,,,-,-,,,,,,,,,,
+31,Mahastya Eijksan Aydin,25/557548/TK/62952,,FALSE,-,,,-,-,,,,,,,,,,
+32,Diara Putra Mahenda,25/557577/TK/62961,,FALSE,-,,,-,-,,,,,,,,,,
+33,Saif Arrahman,25/557735/TK/62983,,FALSE,-,,,-,-,,,,,,,,,,
+34,Gede Narendra Pangayoman,25/557846/TK/62999,,FALSE,-,,,-,-,,,,,,,,,,
+35,Muhamad Amri Riza Fadhilah,25/557944/TK/63010,,FALSE,-,,,-,-,,,,,,,,,,
+36,Muhammad Nabeel Alhadi,25/558052/TK/63027,,FALSE,-,,,-,-,,,,,,,,,,
+37,Brilliano Putra Pradhitya,25/558108/TK/63033,,TRUE,-,100,100,-,-,,,,,,,,,,
+38,Kanzia Ammar Rafif Tabarriza,25/559506/TK/63148,,FALSE,-,,,-,-,,,,,,,,,,
+39,Raissha Hakim Murestyanti,25/559519/TK/63151,,FALSE,-,,,-,-,,,,,,,,,,
+40,Qowiyyul Fahmi,25/559558/TK/63163,,FALSE,-,,,-,-,,,,,,,,,,
+41,Imaduddin Qawim Al Hakim,25/559601/TK/63169,,FALSE,-,,,-,-,,,,,,,,,,
+42,Wildan Daffy Ramadhan,25/559671/TK/63181,,FALSE,-,,,-,-,,,,,,,,,,
+43,Cindy Fatikasari,25/559707/TK/63186,,FALSE,-,,,-,-,,,,,,,,,,
+44,Ramos Edward Jonathan Sinaga,25/559742/TK/63193,,FALSE,-,,,-,-,,,,,,,,,,
+45,Muhammad Arif Al Farizi,25/559771/TK/63196,,FALSE,-,,,-,-,,,,,,,,,,
+46,Afnan Resa Al Fiqri,25/559839/TK/63204,,FALSE,-,,,-,-,,,,,,,,,,
+47,Faiza Naufalia Ghaisani,25/559869/TK/63209,,FALSE,-,,,-,-,,,,,,,,,,
+48,V. Novendria Ananda Putra,25/559918/TK/63215,,FALSE,-,,,-,-,,,,,,,,,,
+49,Farid Nur Ramadhan Abidin,25/559987/TK/63228,,FALSE,-,,,-,-,,,,,,,,,,
+50,Muhammad Kevin Setiko,25/560376/TK/63287,,FALSE,-,,,-,-,,,,,,,,,,
+51,Muhammad Haykal Faizul Haq,25/560398/TK/63292,,FALSE,-,,,-,-,,,,,,,,,,
+52,Yuma Binar Aryaputra,25/560457/TK/63303,,FALSE,-,,,-,-,,,,,,,,,,
+53,Jason Nathanael Indra,25/560513/TK/63310,,FALSE,-,,,-,-,,,,,,,,,,
+54,Raisah Kirana Candra,25/560843/TK/63354,,FALSE,-,,,-,-,,,,,,,,,,
+55,Sulthan Athaullah,25/560921/TK/63362,,FALSE,-,,,-,-,,,,,,,,,,
+56,Muhammad Azad Moqtafin,25/560953/TK/63368,,FALSE,-,,,-,-,,,,,,,,,,
+57,Ekevu Zende,25/561062/TK/63382,,FALSE,-,,,-,-,,,,,,,,,,
+58,Muhammad Khalif Zaidan As-Sakhi,25/561072/TK/63383,,FALSE,-,,,-,-,,,,,,,,,,
+59,Alifia Melannisa Az-Zahra,25/561122/TK/63390,,FALSE,-,,,-,-,,,,,,,,,,
+60,Faiz Daffa Mahardhika,25/561136/TK/63391,,FALSE,-,,,-,-,,,,,,,,,,
+61,Mahraufan Shaka Al Fattah,25/561384/TK/63419,,FALSE,-,,,-,-,,,,,,,,,,
+62,Abdillah Kamal Azizy,25/561425/TK/63428,,FALSE,-,,,-,-,,,,,,,,,,
+63,Melvin Efendy,25/561797/TK/63495,,FALSE,-,,,-,-,,,,,,,,,,
+64,Reskha Dwi Oktaviani,25/561883/TK/63510,,FALSE,-,,,-,-,,,,,,,,,,
+65,Muhammad Rafa Ramadhani,25/562068/TK/63534,,FALSE,-,,,-,-,,,,,,,,,,
+66,Tsaqif Abdurrahim,25/562157/TK/63543,,FALSE,-,,,-,-,,,,,,,,,,
+67,GALIH AGUNG NUGROHO,25/563683/TK/63565,,FALSE,-,,,-,-,,,,,,,,,,
+68,Ghiyas Syafiq Rizqian,25/563715/TK/63569,,FALSE,-,,,-,-,,,,,,,,,,
+69,ALI RIDWAN,25/563828/TK/63585,,FALSE,-,,,-,-,,,,,,,,,,
+70,Daryl Immanuel,25/563840/TK/63587,,FALSE,-,,,-,-,,,,,,,,,,
+71,MUHAMAD FAUZAN,25/563862/TK/63590,,FALSE,-,,,-,-,,,,,,,,,,
+72,Azman Zidni Fadhilah,25/564023/TK/63612,,FALSE,-,,,-,-,,,,,,,,,,
+73,DZAKWAN MUNTASHIR,25/564144/TK/63634,,FALSE,-,,,-,-,,,,,,,,,,
+74,Naufal Ramadhan Putra Kurnia,25/564503/TK/63679,,FALSE,-,,,-,-,,,,,,,,,,
+75,ANDHIKA FEBRIAN PRATAMA,25/564559/TK/63687,,FALSE,-,,,-,-,,,,,,,,,,
+76,Raka Arya Kusuma,25/564834/TK/63713,,FALSE,-,,,-,-,,,,,,,,,,
+77,PATRICK STEFANUS MANIK,25/564889/TK/63718,,FALSE,-,,,-,-,,,,,,,,,,
+78,Janu Rafi Pramudito,25/564925/TK/63721,,FALSE,-,,,-,-,,,,,,,,,,
+79,NAUFAL ALHAFIZH,25/565429/TK/63772,,FALSE,-,,,-,-,,,,,,,,,,
+80,Diptya Aditya Dhyaksa,25/565553/TK/63793,,FALSE,-,,,-,-,,,,,,,,,,
+81,Muhammad Syafiq Yusuf,25/565855/TK/63829,,FALSE,-,,,-,-,,,,,,,,,,
+82,Rizky Emirsanie,25/565895/TK/63835,,FALSE,-,,,-,-,,,,,,,,,,
+83,Arsa Putra Randrio,25/565962/TK/63842,,FALSE,-,,,-,-,,,,,,,,,,
+84,Yohanes Wisanggeni Cahyo Kumolo,25/566044/TK/63854,,FALSE,-,,,-,-,,,,,,,,,,
+85,Muhammad Abid Hakim,25/566226/TK/63879,,FALSE,-,,,-,-,,,,,,,,,,
+86,FAJWA NUR AZZAHRA,25/566510/TK/63902,,FALSE,-,,,-,-,,,,,,,,,,
+87,Muhammad Azarya Sanjaya,25/566678/TK/63917,,FALSE,-,,,-,-,,,,,,,,,,
+88,MUHAMMAD AQIL SYAUQI NUGRAHAPUTRA,25/567268/TK/63994,,FALSE,-,,,-,-,,,,,,,,,,
+89,Nehan Parsa Purnomo,25/567290/TK/63998,,FALSE,-,,,-,-,,,,,,,,,,
+90,Nafi Hasan Rais,25/567304/TK/63999,,FALSE,-,,,-,-,,,,,,,,,,
+91,Faqi Ammar Muhtasyam,25/567489/TK/64026,,FALSE,-,,,-,-,,,,,,,,,,
+92,Ravka Maheswara Perdana,25/567497/TK/64027,,FALSE,-,,,-,-,,,,,,,,,,
+93,Isnanda Hidayati Nasira,25/567792/TK/64048,,FALSE,-,,,-,-,,,,,,,,,,
+94,Aqila Kresna Arrafi,25/568316/TK/64101,,FALSE,-,,,-,-,,,,,,,,,,
+95,Florencia Budiasih,25/568523/TK/64128,,FALSE,-,,,-,-,,,,,,,,,,
+96,MUHAMMAD ZAHIR ALI,25/568649/TK/64138,,FALSE,-,,,-,-,,,,,,,,,,
+97,GHALIB ABID FARREL,25/569025/TK/64161,,FALSE,-,,,-,-,,,,,,,,,,`;
 
   parseCsvData(fallbackCsv);
   updateSyncStatus('offline', 'Data Snapshot Tersedia');
