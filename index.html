@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Nilai Harian Mahasiswa | Live Google Sheets</title>
+  <meta name="description" content="Portal dashboard pemantauan nilai harian dan tugas mahasiswa secara real-time dari Google Sheets.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20260906-2">
+</head>
+<body>
+  <!-- Background Glow Accents -->
+  <div class="glow-bg glow-1"></div>
+  <div class="glow-bg glow-2"></div>
+
+  <!-- Header Section -->
+  <header class="app-header">
+    <div class="header-container">
+      <div class="brand-section">
+        <div class="brand-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 10v6M2 10l10-5 10 5-10 5z"/>
+            <path d="M6 12v5c3 3 9 3 12 0v-5"/>
+          </svg>
+        </div>
+        <div class="brand-meta">
+          <div class="badge-row">
+            <span class="badge badge-primary">Persamaan Diferensial (Kelas A)</span>
+            <span class="badge badge-outline" id="dosenBadge">Dosen: Pak Wijaya</span>
+          </div>
+          <h1 class="header-title">Rekap Nilai Harian Persamaan Diferensial A 2026</h1>
+          <p class="header-subtitle">Pemantauan nilai tugas harian (In-Class Problem & Exit Ticket) tersinkronisasi otomatis</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="sync-status" id="syncStatus">
+          <span class="pulse-indicator"></span>
+          <span class="sync-text" id="syncText">Memuat Data...</span>
+        </div>
+        <button id="btnRefresh" class="btn btn-secondary" title="Muat Ulang Data Terbaru">
+          <svg class="spin-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+          <span class="btn-label">Refresh</span>
+        </button>
+        <button id="btnExport" class="btn btn-secondary" title="Unduh Data CSV">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span class="btn-label">Export CSV</span>
+        </button>
+        <button id="btnThemeToggle" class="btn btn-icon" title="Ganti Tema Gelap/Terang" aria-label="Toggle Theme">
+          <svg class="sun-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"/>
+            <line x1="12" y1="1" x2="12" y2="3"/>
+            <line x1="12" y1="21" x2="12" y2="23"/>
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+            <line x1="1" y1="12" x2="3" y2="12"/>
+            <line x1="21" y1="12" x2="23" y2="12"/>
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+          </svg>
+          <svg class="moon-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <!-- Quick Analytics Stats Row -->
+    <section class="stats-grid" id="statsGrid">
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-title">Total Mahasiswa</span>
+          <div class="stat-icon icon-blue">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+        </div>
+        <div class="stat-value" id="statTotalStudents">-</div>
+        <div class="stat-desc">Terdaftar aktif di kelas</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-title">Pekan Aktif</span>
+          <div class="stat-icon icon-purple">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+        </div>
+        <div class="stat-value" id="statActiveWeeks">-</div>
+        <div class="stat-desc" id="statActiveWeeksDesc">Dari total 7 Pekan + UTS</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-title">Rata-rata Kelas</span>
+          <div class="stat-icon icon-green">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          </div>
+        </div>
+        <div class="stat-value" id="statClassAverage">-</div>
+        <div class="stat-desc">Seluruh tugas terisi</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-header">
+          <span class="stat-title">Total Tugas Tersubmit</span>
+          <div class="stat-icon icon-amber">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          </div>
+        </div>
+        <div class="stat-value" id="statTotalSubmissions">-</div>
+        <div class="stat-desc" id="statSubmissionRate">Tingkat pengumpulan: -%</div>
+      </div>
+    </section>
+
+    <!-- Controls & Filters Section -->
+    <section class="controls-card">
+      <div class="controls-top">
+        <!-- Search Bar -->
+        <div class="search-box">
+          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input type="text" id="searchInput" placeholder="Cari berdasarkan Nama atau NIM... (tekan '/' untuk cari)" autocomplete="off">
+          <button id="btnClearSearch" class="btn-clear hidden" title="Hapus Pencarian">&times;</button>
+        </div>
+
+        <!-- Filter Status Mahasiswa -->
+        <div class="filter-group">
+          <label for="statusFilter" class="filter-label">Filter:</label>
+          <select id="statusFilter" class="select-input">
+            <option value="all">Semua Mahasiswa</option>
+            <option value="submitted">Sudah Mengumpulkan Tugas</option>
+            <option value="incomplete">Ada Tugas Kosong</option>
+          </select>
+        </div>
+
+        <!-- Sort Control -->
+        <div class="filter-group">
+          <label for="sortSelect" class="filter-label">Urutkan:</label>
+          <select id="sortSelect" class="select-input">
+            <option value="no-asc">No. Urut (1 - 97)</option>
+            <option value="name-asc">Nama (A - Z)</option>
+            <option value="name-desc">Nama (Z - A)</option>
+            <option value="nim-asc">NIM (Terkecil)</option>
+            <option value="avg-desc">Nilai Rata-rata Tertinggi</option>
+            <option value="sub-desc">Tugas Paling Banyak Selesai</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs: All Weeks & Per-Week Selection -->
+      <div class="week-tabs-container">
+        <span class="tabs-label">Tampilan Pekan:</span>
+        <div class="week-tabs" id="weekTabs">
+          <button class="week-tab active" data-week="all">Semua Pekan (Lengkap)</button>
+          <button class="week-tab" data-week="1">Week 1</button>
+          <button class="week-tab" data-week="2">Week 2</button>
+          <button class="week-tab" data-week="3">Week 3</button>
+          <button class="week-tab" data-week="4">Week 4</button>
+          <button class="week-tab" data-week="5">Week 5</button>
+          <button class="week-tab" data-week="6">Week 6</button>
+          <button class="week-tab" data-week="7">Week 7</button>
+          <button class="week-tab" data-week="uts">UTS</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Table Information & Active Filter Badges -->
+    <div class="table-meta-bar">
+      <div class="results-count" id="resultsCount">Menampilkan 0 mahasiswa</div>
+      <div class="legend-badges">
+        <span class="legend-item"><span class="score-pill score-high">85-100</span> Sangat Baik</span>
+        <span class="legend-item"><span class="score-pill score-medium">70-84</span> Baik</span>
+        <span class="legend-item"><span class="score-pill score-low">&lt;70</span> Perlu Perhatian</span>
+        <span class="legend-item"><span class="score-pill score-empty">-</span> Belum / Kosong</span>
+      </div>
+    </div>
+
+    <!-- Gradebook Table Container -->
+    <section class="table-card">
+      <div class="table-responsive" id="tableContainer">
+        <div class="loading-state" id="loadingState">
+          <div class="spinner"></div>
+          <p>Mengambil data nilai dari Google Sheets...</p>
+          <span class="loading-hint">Mohon tunggu beberapa saat</span>
+        </div>
+
+        <table class="grade-table hidden" id="gradeTable">
+          <thead id="tableHead">
+            <!-- Dynamic Headers injected by JS -->
+          </thead>
+          <tbody id="tableBody">
+            <!-- Dynamic Rows injected by JS -->
+          </tbody>
+        </table>
+
+        <div class="empty-state hidden" id="emptyState">
+          <div class="empty-icon">🔍</div>
+          <h3>Mahasiswa Tidak Ditemukan</h3>
+          <p>Tidak ada data mahasiswa yang sesuai dengan pencarian "<span id="emptySearchTerm"></span>".</p>
+          <button class="btn btn-secondary" id="btnResetSearch">Reset Pencarian</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Student Grade Detail Modal -->
+  <div class="modal-overlay hidden" id="studentModal">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-student-info">
+          <div class="avatar-circle" id="modalAvatar">JN</div>
+          <div>
+            <h2 class="modal-student-name" id="modalStudentName">Nama Mahasiswa</h2>
+            <div class="modal-student-nim" id="modalStudentNIM">22/494761/TK/54307</div>
+          </div>
+        </div>
+        <button class="modal-close" id="btnModalClose" title="Tutup" aria-label="Tutup Modal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Student Quick Stats in Modal -->
+        <div class="modal-stats-row">
+          <div class="modal-stat-box">
+            <span class="modal-stat-label">Rata-rata Nilai</span>
+            <span class="modal-stat-val" id="modalAvgScore">-</span>
+          </div>
+          <div class="modal-stat-box">
+            <span class="modal-stat-label">Tugas Terisi</span>
+            <span class="modal-stat-val" id="modalCompletedTasks">0 / 15</span>
+          </div>
+          <div class="modal-stat-box">
+            <span class="modal-stat-label">Tingkat Penyelesaian</span>
+            <span class="modal-stat-val" id="modalCompletionPercent">0%</span>
+          </div>
+        </div>
+
+        <!-- Weekly Detail Breakdown Cards -->
+        <h3 class="modal-section-title">Rincian Tugas Setiap Pekan</h3>
+        <div class="modal-weeks-grid" id="modalWeeksGrid">
+          <!-- Injected dynamically -->
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" id="btnPrintStudent">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+          Cetak Kartu Nilai
+        </button>
+        <button class="btn btn-primary" id="btnCloseModalBtn">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div class="toast hidden" id="toast">
+    <span id="toastMessage">Pesan</span>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <div class="footer-container">
+      <p>Data tersinkronisasi langsung dari <a href="https://docs.google.com/spreadsheets/d/1ALjtCw64npBQmjibmViM9kluwvz4jPrPrM3OVmNhfSM/edit?usp=sharing" target="_blank" rel="noopener noreferrer">Google Spreadsheet Resmi</a>.</p>
+      <p class="footer-sub">Portal Nilai Harian Mahasiswa &bull; Dibuat untuk pemantauan akademik terbuka</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
