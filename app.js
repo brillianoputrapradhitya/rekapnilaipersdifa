@@ -1072,8 +1072,13 @@ function initFirebaseAuth() {
   try {
     if (firebase.apps.length === 0) {
       firebase.initializeApp({
+        apiKey: "AIzaSyBU2WYQFRv7MNndqmoZ4SFtQcSMcA8egw0",
+        authDomain: "persdifa2026-d1321.firebaseapp.com",
         projectId: "persdifa2026-d1321",
-        authDomain: "persdifa2026-d1321.firebaseapp.com"
+        storageBucket: "persdifa2026-d1321.firebasestorage.app",
+        messagingSenderId: "18197966872",
+        appId: "1:18197966872:web:5f0e2088c639e2efd6536d",
+        measurementId: "G-KT6PPW7SXF"
       });
     }
 
