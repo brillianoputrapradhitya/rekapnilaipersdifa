@@ -9,6 +9,9 @@ const CONFIG = {
   // Export URLs
   exportUrlCsv: 'https://docs.google.com/spreadsheets/d/1ALjtCw64npBQmjibmViM9kluwvz4jPrPrM3OVmNhfSM/export?format=csv',
   gvizUrlCsv: 'https://docs.google.com/spreadsheets/d/1ALjtCw64npBQmjibmViM9kluwvz4jPrPrM3OVmNhfSM/gviz/tq?tqx=out:csv',
+  // Google Apps Script Web App URL untuk Two-Way Sync (Write/Update Nilai)
+  // Tempelkan URL Web App yang didapat dari langkah penerapan di Google Spreadsheet Anda di sini:
+  appsScriptUrl: 'https://script.google.com/macros/s/AKfycbwuH0JzNZPcxoX7Kdo_unXbb2PS2HCjbxp-WDGXUuUXHue8jbS78EQH3gZcy5Z3Bk0C/exec', 
   autoRefreshIntervalMs: 60000, // Auto refresh every 60s
   passingScore: 70
 };
@@ -27,7 +30,13 @@ let state = {
   selectedStudent: null,
   lastUpdated: null,
   isLoading: false,
-  theme: localStorage.getItem('gradebook_theme_ugm') || 'light'
+  theme: localStorage.getItem('gradebook_theme_ugm') || 'light',
+  // Admin & Authentication State
+  adminList: [], // [{ email, name, role }]
+  adminEmails: new Set(), // Set of lowercase emails with Admin == TRUE in Google Sheets
+  currentUser: JSON.parse(localStorage.getItem('gradebook_admin_user') || 'null'),
+  isEditMode: false,
+  isSaving: false
 };
 
 // Column Schema Definitions (Week 1 - 7 + UTS)
@@ -145,7 +154,30 @@ const elements = {
   btnPrintStudent: document.getElementById('btnPrintStudent'),
   // Toast
   toast: document.getElementById('toast'),
-  toastMessage: document.getElementById('toastMessage')
+  toastMessage: document.getElementById('toastMessage'),
+  // Auth Controls
+  authSection: document.getElementById('authSection'),
+  btnAdminLogin: document.getElementById('btnAdminLogin'),
+  userProfile: document.getElementById('userProfile'),
+  userAvatarImg: document.getElementById('userAvatarImg'),
+  userAvatarPlaceholder: document.getElementById('userAvatarPlaceholder'),
+  userEmailText: document.getElementById('userEmailText'),
+  btnLogout: document.getElementById('btnLogout'),
+  // Login Modal
+  loginModal: document.getElementById('loginModal'),
+  btnCloseLoginModal: document.getElementById('btnCloseLoginModal'),
+  btnGoogleSignIn: document.getElementById('btnGoogleSignIn'),
+  googleSignInLabel: document.getElementById('googleSignInLabel'),
+  emailLoginForm: document.getElementById('emailLoginForm'),
+  adminEmailInput: document.getElementById('adminEmailInput'),
+  btnVerifyEmail: document.getElementById('btnVerifyEmail'),
+  // Student Edit Controls
+  btnToggleEditStudent: document.getElementById('btnToggleEditStudent'),
+  editBtnLabel: document.getElementById('editBtnLabel'),
+  editModeBanner: document.getElementById('editModeBanner'),
+  btnSaveStudentScores: document.getElementById('btnSaveStudentScores'),
+  saveBtnLabel: document.getElementById('saveBtnLabel'),
+  btnCancelEditStudent: document.getElementById('btnCancelEditStudent')
 };
 
 /* ==========================================================================
@@ -154,6 +186,8 @@ const elements = {
 document.addEventListener('DOMContentLoaded', () => {
   initTheme();
   initEventListeners();
+  initFirebaseAuth();
+  updateAuthUI();
   loadData();
 
   // Auto refresh periodically
@@ -200,13 +234,17 @@ function initEventListeners() {
     renderTable();
   });
 
-  // Shortcut key '/' to focus search
+  // Shortcut key '/' to focus search & 'Escape' to close modals
   document.addEventListener('keydown', (e) => {
-    if (e.key === '/' && document.activeElement !== elements.searchInput) {
+    if (e.key === '/' && document.activeElement !== elements.searchInput && document.activeElement !== elements.adminEmailInput && !document.activeElement.classList.contains('task-score-input')) {
       e.preventDefault();
       elements.searchInput.focus();
-    } else if (e.key === 'Escape' && !elements.studentModal.classList.contains('hidden')) {
-      closeStudentModal();
+    } else if (e.key === 'Escape') {
+      if (elements.loginModal && !elements.loginModal.classList.contains('hidden')) {
+        closeLoginModal();
+      } else if (elements.studentModal && !elements.studentModal.classList.contains('hidden')) {
+        closeStudentModal();
+      }
     }
   });
 
@@ -248,7 +286,7 @@ function initEventListeners() {
     renderTable();
   });
 
-  // Modal events
+  // Student Modal events
   elements.btnModalClose.addEventListener('click', closeStudentModal);
   elements.btnCloseModalBtn.addEventListener('click', closeStudentModal);
   elements.studentModal.addEventListener('click', (e) => {
@@ -259,6 +297,39 @@ function initEventListeners() {
   elements.btnPrintStudent.addEventListener('click', () => {
     window.print();
   });
+
+  // Admin Auth Event Listeners
+  if (elements.btnAdminLogin) {
+    elements.btnAdminLogin.addEventListener('click', openLoginModal);
+  }
+  if (elements.btnCloseLoginModal) {
+    elements.btnCloseLoginModal.addEventListener('click', closeLoginModal);
+  }
+  if (elements.loginModal) {
+    elements.loginModal.addEventListener('click', (e) => {
+      if (e.target === elements.loginModal) closeLoginModal();
+    });
+  }
+  if (elements.btnGoogleSignIn) {
+    elements.btnGoogleSignIn.addEventListener('click', signInWithGoogle);
+  }
+  if (elements.emailLoginForm) {
+    elements.emailLoginForm.addEventListener('submit', handleManualEmailLogin);
+  }
+  if (elements.btnLogout) {
+    elements.btnLogout.addEventListener('click', logoutAdmin);
+  }
+
+  // Student Score Edit Event Listeners
+  if (elements.btnToggleEditStudent) {
+    elements.btnToggleEditStudent.addEventListener('click', toggleEditMode);
+  }
+  if (elements.btnCancelEditStudent) {
+    elements.btnCancelEditStudent.addEventListener('click', cancelEditMode);
+  }
+  if (elements.btnSaveStudentScores) {
+    elements.btnSaveStudentScores.addEventListener('click', saveCurrentStudentScores);
+  }
 }
 
 /* ==========================================================================
@@ -369,12 +440,27 @@ function parseCsvData(csvText) {
   const parsedStudents = [];
   const activeWeeks = new Set();
   const activeTasks = new Set();
+  const adminEmails = new Set();
+  const adminList = [];
   let lecturer = null;
 
-  // 1. Detect lecturer from rows above the table header (e.g. Header table / Kop)
+  // 1. Detect lecturer & admin from rows above the table header (e.g. Header table / Kop)
   for (let i = 0; i < headerRowIndex; i++) {
     const row = rows[i];
     if (!row) continue;
+
+    // Scan for any cell with an email address and check if adjacent cell is TRUE
+    for (let c = 0; c < row.length; c++) {
+      const cell = (row[c] || '').trim().toLowerCase();
+      if (cell.includes('@') && cell.includes('.')) {
+        const nextCell = (row[c + 1] || '').trim().toUpperCase();
+        if (nextCell === 'TRUE' || nextCell === '1') {
+          adminEmails.add(cell);
+          const adminName = row[c - 2] || row[1] || 'Dosen';
+          adminList.push({ email: cell, name: adminName, role: 'Dosen' });
+        }
+      }
+    }
 
     const dosenIdx = row.findIndex(c => c && c.trim().toLowerCase() === 'dosen');
     if (dosenIdx !== -1) {
@@ -408,6 +494,14 @@ function parseCsvData(csvText) {
     const noRaw = row[0];
     const name = row[1];
     const nim = row[2];
+    const email = (row[3] || '').trim().toLowerCase();
+    const adminVal = (row[4] || '').trim().toUpperCase();
+    const isStudentAdmin = adminVal === 'TRUE' || adminVal === '1';
+
+    if (email && isStudentAdmin) {
+      adminEmails.add(email);
+      adminList.push({ email, name, role: 'Admin / Asisten', nim });
+    }
 
     if (!name && !nim) return;
 
@@ -464,6 +558,8 @@ function parseCsvData(csvText) {
       no,
       name,
       nim,
+      email,
+      isAdmin: isStudentAdmin,
       grades,
       totalScore,
       scoredTasksCount,
@@ -475,9 +571,19 @@ function parseCsvData(csvText) {
   state.students = parsedStudents;
   state.activeWeeks = activeWeeks;
   state.activeTasks = Array.from(activeTasks);
+  state.adminEmails = adminEmails;
+  state.adminList = adminList;
+
   if (lecturer) {
     state.lecturer = lecturer;
     elements.dosenBadge.textContent = `Dosen: ${lecturer.name}`;
+  }
+
+  // Re-verify currently logged-in user against sheet admin list
+  if (state.currentUser && state.currentUser.email) {
+    state.currentUser.isAdmin = adminEmails.has(state.currentUser.email.toLowerCase());
+    localStorage.setItem('gradebook_admin_user', JSON.stringify(state.currentUser));
+    updateAuthUI();
   }
 }
 
@@ -663,7 +769,10 @@ function renderTable() {
         <div class="student-cell">
           <div class="student-avatar">${initials}</div>
           <div>
-            <div class="student-name-text" title="${student.name}">${student.name}</div>
+            <div class="student-name-text" title="${student.name}">
+              ${student.name}
+              ${state.currentUser && state.currentUser.isAdmin ? '<span class="row-editable-badge" title="Klik untuk edit nilai">✏️</span>' : ''}
+            </div>
             <div class="student-nim-text">${student.nim}</div>
           </div>
         </div>
@@ -729,13 +838,21 @@ function renderTable() {
 }
 
 /* ==========================================================================
-   Student Detail Modal
+   Student Detail Modal & Score Editing
    ========================================================================== */
 window.openStudentModal = function(nim) {
   const student = state.students.find(s => s.nim === nim);
   if (!student) return;
 
   state.selectedStudent = student;
+  state.isEditMode = false;
+  renderStudentModalContent(student);
+  elements.studentModal.classList.remove('hidden');
+};
+
+function renderStudentModalContent(student) {
+  if (!student) return;
+
   elements.modalAvatar.textContent = getInitials(student.name);
   elements.modalStudentName.textContent = student.name;
   elements.modalStudentNIM.textContent = student.nim;
@@ -749,6 +866,27 @@ window.openStudentModal = function(nim) {
   const completionPct = Math.round((student.submittedCount / totalTasks) * 100);
   elements.modalCompletionPercent.textContent = `${completionPct}%`;
 
+  const isAdmin = !!(state.currentUser && state.currentUser.isAdmin);
+
+  if (isAdmin) {
+    elements.btnToggleEditStudent.classList.remove('hidden');
+    elements.editBtnLabel.textContent = state.isEditMode ? 'Batal Edit' : 'Edit Nilai';
+  } else {
+    elements.btnToggleEditStudent.classList.add('hidden');
+  }
+
+  if (state.isEditMode) {
+    elements.editModeBanner.classList.remove('hidden');
+    elements.btnSaveStudentScores.classList.remove('hidden');
+    elements.btnCancelEditStudent.classList.remove('hidden');
+    elements.btnPrintStudent.classList.add('hidden');
+  } else {
+    elements.editModeBanner.classList.add('hidden');
+    elements.btnSaveStudentScores.classList.add('hidden');
+    elements.btnCancelEditStudent.classList.add('hidden');
+    elements.btnPrintStudent.classList.remove('hidden');
+  }
+
   // Render weekly breakdown cards
   let gridHtml = '';
   WEEKS_DEF.forEach(week => {
@@ -757,10 +895,23 @@ window.openStudentModal = function(nim) {
 
     week.tasks.forEach(task => {
       const grade = student.grades[task.id] || { raw: '', score: null, isSubmitted: false };
+      
+      let scoreHtml = '';
+      if (state.isEditMode) {
+        const currentVal = grade.score !== null ? grade.score : (grade.raw === '-' ? '' : grade.raw);
+        scoreHtml = `
+          <div class="task-score-edit-box">
+            <input type="text" inputmode="decimal" class="task-score-input" data-task-id="${task.id}" value="${currentVal}" placeholder="-">
+          </div>
+        `;
+      } else {
+        scoreHtml = `<span>${formatScoreBadge(grade)}</span>`;
+      }
+
       tasksHtml += `
         <div class="task-item-row">
           <span class="task-name-label">${task.label}</span>
-          <span>${formatScoreBadge(grade)}</span>
+          ${scoreHtml}
         </div>
       `;
     });
@@ -779,12 +930,309 @@ window.openStudentModal = function(nim) {
   });
 
   elements.modalWeeksGrid.innerHTML = gridHtml;
-  elements.studentModal.classList.remove('hidden');
-};
+}
+
+function toggleEditMode() {
+  if (!state.selectedStudent) return;
+  if (!state.currentUser || !state.currentUser.isAdmin) {
+    showToast('Akses ditolak: Anda harus login sebagai Admin.', true);
+    return;
+  }
+  state.isEditMode = !state.isEditMode;
+  renderStudentModalContent(state.selectedStudent);
+}
+
+function cancelEditMode() {
+  state.isEditMode = false;
+  if (state.selectedStudent) {
+    renderStudentModalContent(state.selectedStudent);
+  }
+}
+
+async function saveCurrentStudentScores() {
+  if (!state.selectedStudent) return;
+  if (!state.currentUser || !state.currentUser.isAdmin) {
+    showToast('Akses ditolak: Hanya Admin yang dapat menyimpan nilai.', true);
+    return;
+  }
+
+  const student = state.selectedStudent;
+  const inputs = elements.modalWeeksGrid.querySelectorAll('.task-score-input');
+  const updatedScores = {};
+
+  inputs.forEach(input => {
+    const taskId = input.dataset.taskId;
+    const rawVal = input.value.trim();
+    updatedScores[taskId] = rawVal === '' ? '-' : rawVal;
+  });
+
+  elements.btnSaveStudentScores.disabled = true;
+  elements.saveBtnLabel.textContent = 'Menyimpan...';
+
+  try {
+    if (CONFIG.appsScriptUrl) {
+      const payload = {
+        action: 'updateStudentScores',
+        userEmail: state.currentUser.email,
+        nim: student.nim,
+        studentName: student.name,
+        scores: updatedScores
+      };
+
+      const resp = await fetch(CONFIG.appsScriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      });
+
+      const resData = await resp.json();
+      if (!resData.success) {
+        throw new Error(resData.error || 'Server menolak penyimpanan.');
+      }
+      showToast(`Nilai ${student.name} berhasil disimpan ke Google Sheets!`);
+    } else {
+      showToast(`Nilai tersimpan di browser! (Masukkan Web App URL di CONFIG.appsScriptUrl untuk sync ke Sheet)`);
+    }
+
+    // Update in-memory state
+    let totalScore = 0;
+    let scoredTasksCount = 0;
+    let submittedCount = 0;
+
+    ALL_TASKS.forEach(task => {
+      if (updatedScores.hasOwnProperty(task.id)) {
+        const val = updatedScores[task.id];
+        let scoreNum = null;
+        let isSubmitted = false;
+
+        if (val !== '' && val !== '-') {
+          const num = parseFloat(val.toString().replace(',', '.'));
+          if (!isNaN(num)) {
+            scoreNum = num;
+            totalScore += num;
+            scoredTasksCount++;
+            isSubmitted = true;
+            state.activeWeeks.add(task.weekId);
+            if (!state.activeTasks.includes(task.id)) {
+              state.activeTasks.push(task.id);
+            }
+          } else {
+            isSubmitted = true;
+          }
+        }
+
+        student.grades[task.id] = {
+          raw: val,
+          score: scoreNum,
+          isSubmitted: isSubmitted
+        };
+
+        if (isSubmitted) submittedCount++;
+      }
+    });
+
+    student.totalScore = totalScore;
+    student.scoredTasksCount = scoredTasksCount;
+    student.submittedCount = submittedCount;
+    student.average = scoredTasksCount > 0 ? (totalScore / scoredTasksCount) : null;
+
+    state.isEditMode = false;
+    renderStudentModalContent(student);
+    updateAnalytics();
+    renderTable();
+
+    // Silently re-sync from Google Sheets after 2.5s if Apps Script URL is set
+    if (CONFIG.appsScriptUrl) {
+      setTimeout(() => loadData(true), 2500);
+    }
+  } catch (err) {
+    console.error('Error saat menyimpan nilai:', err);
+    showToast(`Gagal menyimpan ke Google Sheets: ${err.message}`, true);
+  } finally {
+    elements.btnSaveStudentScores.disabled = false;
+    elements.saveBtnLabel.textContent = 'Simpan ke Google Sheets';
+  }
+}
 
 function closeStudentModal() {
   elements.studentModal.classList.add('hidden');
   state.selectedStudent = null;
+  state.isEditMode = false;
+}
+
+/* ==========================================================================
+   Admin Authentication System (Google & Manual Verification)
+   ========================================================================== */
+function initFirebaseAuth() {
+  if (typeof firebase === 'undefined') {
+    console.log('Firebase SDK tidak dimuat.');
+    return;
+  }
+
+  try {
+    if (firebase.apps.length === 0) {
+      firebase.initializeApp({
+        projectId: "persdifa2026-d1321",
+        authDomain: "persdifa2026-d1321.firebaseapp.com"
+      });
+    }
+
+    if (firebase.auth) {
+      firebase.auth().onAuthStateChanged((user) => {
+        if (user && user.email) {
+          const normEmail = user.email.toLowerCase();
+          if (state.adminEmails.size > 0 && state.adminEmails.has(normEmail)) {
+            handleLoginSuccess(user.email, user.displayName, user.photoURL);
+          }
+        }
+      });
+    }
+  } catch (err) {
+    console.log('Firebase init note:', err.message);
+  }
+}
+
+function openLoginModal() {
+  elements.loginModal.classList.remove('hidden');
+  elements.adminEmailInput.value = '';
+}
+
+function closeLoginModal() {
+  elements.loginModal.classList.add('hidden');
+}
+
+async function signInWithGoogle() {
+  if (typeof firebase === 'undefined' || !firebase.auth) {
+    showToast('Firebase Auth SDK belum siap.', true);
+    return;
+  }
+
+  const btn = elements.btnGoogleSignIn;
+  btn.disabled = true;
+  elements.googleSignInLabel.textContent = 'Menghubungkan ke Google...';
+
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    const result = await firebase.auth().signInWithPopup(provider);
+    const user = result.user;
+    handleLoginSuccess(user.email, user.displayName, user.photoURL);
+  } catch (err) {
+    console.error('Google Sign-In Error:', err);
+    if (err.code === 'auth/popup-closed-by-user') {
+      showToast('Login dibatalkan.');
+    } else if (err.code === 'auth/operation-not-allowed' || err.code === 'auth/configuration-not-found') {
+      showToast('Provider Google belum diaktifkan di Firebase Console. Gunakan form email di bawah sementara waktu.', true);
+    } else {
+      showToast('Gagal login: ' + (err.message || err.code), true);
+    }
+  } finally {
+    btn.disabled = false;
+    elements.googleSignInLabel.textContent = 'Masuk dengan Akun Google';
+  }
+}
+
+function handleManualEmailLogin(e) {
+  e.preventDefault();
+  const inputEmail = elements.adminEmailInput.value.trim().toLowerCase();
+  if (!inputEmail) return;
+
+  if (state.adminEmails.size === 0) {
+    showToast('Data hak akses spreadsheet sedang dimuat. Coba sebentar lagi...', true);
+    return;
+  }
+
+  if (state.adminEmails.has(inputEmail)) {
+    const adminObj = state.adminList.find(a => a.email === inputEmail);
+    const name = adminObj ? adminObj.name : inputEmail.split('@')[0];
+    handleLoginSuccess(inputEmail, name, '');
+  } else {
+    showToast(`Email ${inputEmail} tidak terdaftar sebagai Admin di spreadsheet!`, true);
+    alert(`Akses Ditolak!\n\nEmail "${inputEmail}" tidak terdaftar dengan status Admin: TRUE di Google Spreadsheet.\n\nPastikan kolom Admin di spreadsheet bernilai TRUE untuk email ini.`);
+  }
+}
+
+function handleLoginSuccess(email, displayName, photoUrl) {
+  if (!email) return;
+  const normEmail = email.trim().toLowerCase();
+  const isAdmin = state.adminEmails.has(normEmail);
+
+  if (!isAdmin) {
+    if (state.adminEmails.size === 0) {
+      showToast('Menunggu data spreadsheet selesai dimuat...', true);
+      return;
+    }
+    showToast(`Akses Ditolak: ${email} bukan Admin di Google Spreadsheet.`, true);
+    alert(`Akses Ditolak!\n\nEmail "${email}" tidak memiliki status Admin (Admin: TRUE) di Google Spreadsheet.\n\nAkun Anda hanya memiliki izin baca (View-Only).`);
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth) firebase.auth().signOut();
+    } catch (e) {}
+    return;
+  }
+
+  let finalName = displayName;
+  if (!finalName) {
+    const adminObj = state.adminList.find(a => a.email === normEmail);
+    finalName = adminObj ? adminObj.name : normEmail.split('@')[0];
+  }
+
+  state.currentUser = {
+    email: normEmail,
+    name: finalName,
+    photoUrl: photoUrl || '',
+    isAdmin: true
+  };
+
+  localStorage.setItem('gradebook_admin_user', JSON.stringify(state.currentUser));
+  updateAuthUI();
+  renderTable();
+  closeLoginModal();
+  showToast(`Selamat datang, ${finalName}! Mode Admin aktif.`);
+}
+
+function logoutAdmin() {
+  state.currentUser = null;
+  state.isEditMode = false;
+  localStorage.removeItem('gradebook_admin_user');
+  try {
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      firebase.auth().signOut();
+    }
+  } catch (e) {}
+  updateAuthUI();
+  if (state.selectedStudent) {
+    renderStudentModalContent(state.selectedStudent);
+  }
+  renderTable();
+  showToast('Berhasil logout. Kembali ke mode Read-Only.');
+}
+
+function updateAuthUI() {
+  const isAdmin = !!(state.currentUser && state.currentUser.isAdmin);
+
+  if (isAdmin) {
+    if (elements.btnAdminLogin) elements.btnAdminLogin.classList.add('hidden');
+    if (elements.userProfile) elements.userProfile.classList.remove('hidden');
+    if (elements.userEmailText) elements.userEmailText.textContent = state.currentUser.email;
+
+    if (state.currentUser.photoUrl && elements.userAvatarImg) {
+      elements.userAvatarImg.src = state.currentUser.photoUrl;
+      elements.userAvatarImg.classList.remove('hidden');
+      if (elements.userAvatarPlaceholder) elements.userAvatarPlaceholder.classList.add('hidden');
+    } else if (elements.userAvatarPlaceholder) {
+      elements.userAvatarPlaceholder.textContent = getInitials(state.currentUser.name);
+      if (elements.userAvatarImg) elements.userAvatarImg.classList.add('hidden');
+      elements.userAvatarPlaceholder.classList.remove('hidden');
+    }
+
+    if (elements.btnToggleEditStudent) {
+      elements.btnToggleEditStudent.classList.remove('hidden');
+    }
+  } else {
+    if (elements.btnAdminLogin) elements.btnAdminLogin.classList.remove('hidden');
+    if (elements.userProfile) elements.userProfile.classList.add('hidden');
+    if (elements.btnToggleEditStudent) elements.btnToggleEditStudent.classList.add('hidden');
+  }
 }
 
 /* ==========================================================================

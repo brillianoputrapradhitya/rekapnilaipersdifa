@@ -116,12 +116,50 @@ Jika dosenmu menginginkan domain gratis resmi dari Google (`https://nama-project
 
 ---
 
+## 🔐 Panduan Mengaktifkan Fitur Edit Nilai (Two-Way Sync Google Sheets)
+
+Website kini mendukung **Two-Way Sync (Sinkronisasi Dua Arah)** dengan hak akses admin:
+- Pengunjung / Mahasiswa hanya bisa melihat nilai (*Read-Only*).
+- Dosen & Asisten dengan status `Admin: TRUE` pada Google Spreadsheet dapat mengedit nilai langsung dari website dan menyimpannya ke Google Spreadsheet secara real-time.
+
+### Langkah 1: Pasang Google Apps Script di Spreadsheet Anda (Cuma 2 Menit)
+1. Buka Google Spreadsheet nilai Anda di browser.
+2. Klik menu: **Extensions > Apps Script** (Ekstensi > Apps Script).
+3. Hapus kode default di editor, lalu salin dan tempelkan seluruh isi file `google-apps-script.js` yang ada di folder project ini.
+4. Klik ikon **Save (Simpan)**.
+5. Klik tombol biru **Deploy (Terapkan)** di pojok kanan atas > pilih **New deployment (Penerapan baru)**.
+6. Klik ikon gerigi (Select type) > pilih **Web app (Aplikasi web)**.
+7. Konfigurasi:
+   - *Description*: `Web API Nilai Persdifa`
+   - *Execute as*: `Me` (Akun Google Anda)
+   - *Who has access*: `Anyone` (Siapa saja)
+8. Klik **Deploy** > Klik **Authorize access (Berikan akses)** > Pilih akun Google Anda > Klik *Advanced* > Klik *Go to Untitled project (unsafe)* > Klik *Allow*.
+9. Salin URL yang dihasilkan (**Web app URL**, berakhiran `/exec`).
+10. Buka file `app.js` pada project ini, lalu tempelkan URL tersebut ke baris:
+    ```javascript
+    appsScriptUrl: 'https://script.google.com/macros/s/AKfycby.../exec',
+    ```
+
+---
+
+### Langkah 2: Aktifkan Google Sign-In di Firebase Console
+1. Buka [Firebase Console](https://console.firebase.google.com/) > pilih project `persdifa2026-d1321`.
+2. Di menu samping kiri, klik **Build > Authentication**.
+3. Klik tab **Sign-in method** > klik **Add new provider** > pilih **Google**.
+4. Geser tombol toggle ke posisi **Enable**, masukkan email support Anda, lalu klik **Save**.
+5. Selesai! Tombol *Login Admin* dengan Google sekarang aktif penuh.
+*(Catatan: Anda juga dapat menggunakan opsi verifikasi email langsung pada popup login untuk pengujian cepat).*
+
+---
+
 ## 📁 Struktur File
 
 ```
 c:\FileReno\Academic\Dosen\
-├── index.html        # Struktur antarmuka web, modal kartu nilai, dan filter
-├── styles.css        # Desain modern, CSS variables, Dark/Light theme, Print styles
-├── app.js            # Engine JavaScript: Live Google Sheet parser, search, analytics, export
-└── README.md         # Panduan penggunaan dan cara deploy gratis
+├── index.html            # Antarmuka web, modal kartu nilai mahasiswa, dan modal login admin
+├── styles.css            # Desain tema UGM, Dark/Light mode, dan kontrol edit nilai
+├── app.js                # Engine JavaScript: Firebase Auth, parser Google Sheets, live edit & sync
+├── google-apps-script.js # Script API untuk dipasang di Google Spreadsheet (Two-Way Sync)
+└── README.md             # Panduan lengkap, setup deployment, dan konfigurasi API
 ```
+
