@@ -32,8 +32,14 @@ let state = {
   isLoading: false,
   theme: localStorage.getItem('gradebook_theme_ugm') || 'light',
   // Admin & Authentication State
-  adminList: [], // [{ email, name, role }]
-  adminEmails: new Set(), // Set of lowercase emails with Admin == TRUE in Google Sheets
+  adminList: [
+    { email: 'wyatmaja@ugm.ac.id', name: 'Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.', role: 'Dosen' },
+    { email: 'brillianoputrapradhitya@mail.ugm.ac.id', name: 'Brilliano Putra Pradhitya', role: 'Admin / Asisten' }
+  ],
+  adminEmails: new Set([
+    'wyatmaja@ugm.ac.id',
+    'brillianoputrapradhitya@mail.ugm.ac.id'
+  ]),
   currentUser: JSON.parse(localStorage.getItem('gradebook_admin_user') || 'null'),
   isEditMode: false,
   isSaving: false
@@ -421,11 +427,11 @@ function parseCsvData(csvText) {
   const rows = parseCsvRows(csvText);
   if (rows.length < 2) return;
 
-  // Find header row containing 'No', 'Nama', 'NIM'
+  // Find header row containing 'Nama' and 'NIM' (resilient to gviz merged first column)
   let headerRowIndex = -1;
   for (let i = 0; i < Math.min(15, rows.length); i++) {
-    const r = rows[i].map(c => c.toLowerCase());
-    if (r.includes('no') && r.includes('nama') && r.includes('nim')) {
+    const r = rows[i].map(c => (c || '').toString().toLowerCase().trim());
+    if (r.includes('nama') && r.includes('nim')) {
       headerRowIndex = i;
       break;
     }
@@ -440,8 +446,8 @@ function parseCsvData(csvText) {
   const parsedStudents = [];
   const activeWeeks = new Set();
   const activeTasks = new Set();
-  const adminEmails = new Set();
-  const adminList = [];
+  const adminEmails = new Set(state.adminEmails);
+  const adminList = [...state.adminList];
   let lecturer = null;
 
   // 1. Detect lecturer & admin from rows above the table header (e.g. Header table / Kop)
@@ -449,15 +455,18 @@ function parseCsvData(csvText) {
     const row = rows[i];
     if (!row) continue;
 
-    // Scan for any cell with an email address and check if adjacent cell is TRUE
+    // Scan for any cell with an email address and check if row/adjacent is TRUE
     for (let c = 0; c < row.length; c++) {
       const cell = (row[c] || '').trim().toLowerCase();
       if (cell.includes('@') && cell.includes('.')) {
-        const nextCell = (row[c + 1] || '').trim().toUpperCase();
-        if (nextCell === 'TRUE' || nextCell === '1') {
+        const isNextTrue = (row[c + 1] || '').trim().toUpperCase() === 'TRUE' || (row[c + 1] || '').trim() === '1';
+        const isRowTrue = row.some(x => (x || '').trim().toUpperCase() === 'TRUE');
+        if (isNextTrue || isRowTrue) {
           adminEmails.add(cell);
           const adminName = row[c - 2] || row[1] || 'Dosen';
-          adminList.push({ email: cell, name: adminName, role: 'Dosen' });
+          if (!adminList.some(a => a.email === cell)) {
+            adminList.push({ email: cell, name: adminName, role: 'Dosen' });
+          }
         }
       }
     }
@@ -500,7 +509,9 @@ function parseCsvData(csvText) {
 
     if (email && isStudentAdmin) {
       adminEmails.add(email);
-      adminList.push({ email, name, role: 'Admin / Asisten', nim });
+      if (!adminList.some(a => a.email === email)) {
+        adminList.push({ email, name, role: 'Admin / Asisten', nim });
+      }
     }
 
     if (!name && !nim) return;
@@ -1360,7 +1371,7 @@ function loadFallbackSnapshot() {
   // Snapshot from Google Sheet fetched earlier to guarantee instant demo even without internet
   const fallbackCsv = `,PENILAIAN PERSAMAAN DIFFERENSIAL A,,,,,,,,,,,,,,,,,,
 ,Dosen,,Email,Admin,,,,,,,,,,,,,,,
-,"Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.",-,,TRUE,,,,,,,,,,,,,,,
+,"Dr. Ir. Wijaya Yudha Atmaja, S. T., M. Eng.",-,wyatmaja@ugm.ac.id,TRUE,,,,,,,,,,,,,,,
 ,,,,,Week 1,,Week 2,,Week 3,,Week 4,,Week 5,,Week 6,,Week 7,,
 No,Nama,NIM,Email,Admin,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticket,UTS
 1,Jovan Nathanael Gondomulyono,22/494761/TK/54307,,FALSE,-,,,-,-,,,,,,,,,,
@@ -1399,7 +1410,7 @@ No,Nama,NIM,Email,Admin,In-Class Problem,Exit Ticket,In-Class Problem,Exit Ticke
 34,Gede Narendra Pangayoman,25/557846/TK/62999,,FALSE,-,,,-,-,,,,,,,,,,
 35,Muhamad Amri Riza Fadhilah,25/557944/TK/63010,,FALSE,-,,,-,-,,,,,,,,,,
 36,Muhammad Nabeel Alhadi,25/558052/TK/63027,,FALSE,-,,,-,-,,,,,,,,,,
-37,Brilliano Putra Pradhitya,25/558108/TK/63033,,TRUE,-,100,100,-,-,,,,,,,,,,
+37,Brilliano Putra Pradhitya,25/558108/TK/63033,brillianoputrapradhitya@mail.ugm.ac.id,TRUE,-,100,100,-,-,,,,,,,,,,
 38,Kanzia Ammar Rafif Tabarriza,25/559506/TK/63148,,FALSE,-,,,-,-,,,,,,,,,,
 39,Raissha Hakim Murestyanti,25/559519/TK/63151,,FALSE,-,,,-,-,,,,,,,,,,
 40,Qowiyyul Fahmi,25/559558/TK/63163,,FALSE,-,,,-,-,,,,,,,,,,
