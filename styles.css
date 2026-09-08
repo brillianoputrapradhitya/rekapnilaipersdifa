@@ -334,6 +334,19 @@ body {
   box-shadow: 0 6px 20px rgba(0, 65, 107, 0.7), 0 0 18px rgba(253, 212, 2, 0.45);
 }
 
+.brand-fx-img {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(253, 212, 2, 0.7));
+  transition: var(--transition);
+}
+
+.brand-icon:hover .brand-fx-img {
+  transform: scale(1.08);
+  filter: drop-shadow(0 0 8px rgba(253, 212, 2, 0.95));
+}
+
 .brand-glow-ring {
   position: absolute;
   inset: -3px;
