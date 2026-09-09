@@ -1,23 +1,18 @@
 /**
  * ==============================================================================
  * GOOGLE APPS SCRIPT: SINKRONISASI DUA ARAH (WEBSITE ↔ GOOGLE SPREADSHEET)
- * Rekap Nilai Harian Persamaan Diferensial A 2026
+ * Rekap Nilai Harian Persamaan Diferensial (Multi-Kelas: Kelas A, C, dst.) 2026
  * ==============================================================================
  * 
- * CARA MEMASANG DI GOOGLE SPREADSHEET ANDA:
+ * ⚠️ PENTING: SETIAP KALI KODE INI DIPERBARUI, ANDA HARUS:
  * 1. Buka Google Spreadsheet nilai Anda di browser.
  * 2. Klik menu: Extensions > Apps Script (Ekstensi > Apps Script).
- * 3. Hapus semua kode default di editor, lalu PASTE SELURUH KODE DI BAWAH INI.
+ * 3. Hapus semua kode lama di editor, lalu PASTE SELURUH KODE DI BAWAH INI.
  * 4. Klik icon Disket (Save).
- * 5. Klik tombol biru "Deploy" (Terapkan) di pojok kanan atas > "New deployment" (Penerapan baru).
- * 6. Klik ikon gerigi (Select type) > pilih "Web app" (Aplikasi web).
- * 7. Konfigurasi:
- *    - Description: Web API Nilai Persdifa
- *    - Execute as: Me (email akun Anda)
- *    - Who has access: Anyone (Siapa saja)
- * 8. Klik "Deploy" > Berikan Izin Akses (Authorize Access > Advanced > Go to Untitled project (unsafe) > Allow).
- * 9. Salin "Web app URL" (bentuknya: https://script.google.com/macros/s/.../exec).
- * 10. Buka file `app.js` di project website Anda, lalu tempel URL tersebut pada variabel `CONFIG.appsScriptUrl`.
+ * 5. Klik tombol biru "Deploy" (Terapkan) di pojok kanan atas > pilih "Manage deployments" (Kelola penerapan).
+ * 6. Klik ikon Pensil (Edit) di samping deployment aktif Anda.
+ * 7. Pada dropdown "Version", PILIH: "New version" (Versi baru).
+ * 8. Klik tombol "Deploy".
  * ==============================================================================
  */
 
@@ -50,17 +45,34 @@ var TASK_COLUMNS = {
 };
 
 /**
- * GET Endpoint: Untuk tes koneksi & cek status API
+ * GET Endpoint: Untuk tes koneksi, daftar tab sheet secara dinamis, & cek status API
  */
 function doGet(e) {
   var params = e && e.parameter ? e.parameter : {};
   var action = params.action || 'ping';
 
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getActiveSheet();
+
+  // Kembalikan seluruh tab sheet yang ada di spreadsheet untuk auto-discovery web
+  if (action === 'getSheets' || action === 'getClasses') {
+    var allSheets = ss.getSheets().map(function(s) {
+      return {
+        id: s.getSheetId().toString(),
+        gid: s.getSheetId().toString(),
+        name: s.getName()
+      };
+    });
+    return createJsonResponse({
+      success: true,
+      sheets: allSheets
+    });
+  }
 
   if (action === 'checkAdmin') {
     var emailToCheck = (params.email || '').trim().toLowerCase();
-    var isAdmin = isAuthorizedAdmin(sheet, emailToCheck);
+    var primarySheet = ss.getSheets()[0];
+    var isAdmin = isAuthorizedAdmin(sheet, emailToCheck) || isAuthorizedAdmin(primarySheet, emailToCheck);
     return createJsonResponse({
       success: true,
       email: emailToCheck,
@@ -70,23 +82,23 @@ function doGet(e) {
 
   return createJsonResponse({
     status: 'ok',
-    message: 'Google Apps Script API Persdifa A 2026 Aktif & Siap Menerima Data!',
+    message: 'Google Apps Script API Persdifa (Multi-Kelas) 2026 Aktif & Siap Menerima Data!',
+    sheetsCount: ss.getSheets().length,
     timestamp: new Date().toISOString()
   });
 }
 
 /**
- * POST Endpoint: Menerima perubahan nilai dari Website dan menyimpannya ke Spreadsheet
+ * POST Endpoint: Menerima perubahan nilai dan pembuatan sheet kelas baru dari Website
  */
 function doPost(e) {
-  // Kunci eksekusi untuk mencegah konflik saat dua admin mengedit bersamaan
   var lock = LockService.getScriptLock();
-  var lockAcquired = lock.tryLock(10000); // Tunggu maksimal 10 detik
+  var lockAcquired = lock.tryLock(15000); // Tunggu maksimal 15 detik
 
   if (!lockAcquired) {
     return createJsonResponse({
       success: false,
-      error: 'Server sedang sibuk memproses permintaan lain. Coba beberapa detik lagi.'
+      error: 'Server Google Apps Script sedang sibuk. Silakan coba beberapa detik lagi.'
     });
   }
 
@@ -99,57 +111,164 @@ function doPost(e) {
     }
 
     var payload = JSON.parse(e.postData.contents);
+    var action = payload.action || 'updateStudentScores';
     var userEmail = (payload.userEmail || '').trim().toLowerCase();
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var primarySheet = ss.getSheets()[0];
+
+    // =========================================================================
+    // AKSI 1: TAMBAH SHEET KELAS BARU DARI WEB (REPRODUCIBLE CLASS CREATOR)
+    // =========================================================================
+    if (action === 'createSheet' || action === 'addClass') {
+      var newSheetName = (payload.sheetName || payload.className || '').trim();
+      if (!newSheetName) {
+        return createJsonResponse({
+          success: false,
+          error: 'Nama sheet tidak boleh kosong.'
+        });
+      }
+
+      // Verifikasi Keamanan: HANYA ADMIN yang memiliki izin membuat sheet kelas baru
+      if (!userEmail) {
+        return createJsonResponse({
+          success: false,
+          error: 'Akses ditolak: Anda harus login sebagai Admin untuk membuat sheet kelas baru di Google Spreadsheet.'
+        });
+      }
+
+      var isAuth = isAuthorizedAdmin(primarySheet, userEmail);
+      if (!isAuth) {
+        var allSheets = ss.getSheets();
+        for (var s = 0; s < allSheets.length; s++) {
+          if (isAuthorizedAdmin(allSheets[s], userEmail)) {
+            isAuth = true;
+            break;
+          }
+        }
+      }
+
+      if (!isAuth) {
+        return createJsonResponse({
+          success: false,
+          error: 'Akses ditolak: Email "' + userEmail + '" tidak memiliki status Admin (Admin: TRUE) di Google Spreadsheet.'
+        });
+      }
+
+      // Jika sheet sudah ada, kembalikan GID-nya
+      var existingSheet = ss.getSheetByName(newSheetName);
+      if (existingSheet) {
+        return createJsonResponse({
+          success: true,
+          sheetName: newSheetName,
+          gid: existingSheet.getSheetId().toString(),
+          message: 'Sheet "' + newSheetName + '" sudah ada di Google Spreadsheet.'
+        });
+      }
+
+      // Buat sheet baru dan salin format header dari sheet template (PersDif A)
+      var templateSheet = ss.getSheetByName('PersDif A') || primarySheet;
+      var newSheet = ss.insertSheet(newSheetName);
+
+      // Salin 4 baris header (Kop Dosen, Pekan 1-7, In-Class, Exit Ticket, UTS)
+      var templateRange = templateSheet.getRange(1, 1, 4, 21);
+      var targetRange = newSheet.getRange(1, 1, 4, 21);
+      templateRange.copyTo(targetRange);
+
+      SpreadsheetApp.flush();
+
+      return createJsonResponse({
+        success: true,
+        sheetName: newSheetName,
+        gid: newSheet.getSheetId().toString(),
+        message: 'Sheet "' + newSheetName + '" berhasil dibuat di Google Spreadsheet!'
+      });
+    }
+
+    // =========================================================================
+    // AKSI 2: UPDATE NILAI MAHASISWA (MULTI-SHEET & ALL-SHEET FALLBACK SEARCH)
+    // =========================================================================
     var nim = (payload.nim || '').trim();
-    var scores = payload.scores || {}; // Objek berisi pasangan { 'w1_inclass': 95, 'w1_exit': 100 }
+    var scores = payload.scores || {};
+    var targetSheetName = payload.sheetName || payload.className || '';
+    var targetGid = payload.gid ? payload.gid.toString() : '';
 
     if (!nim) {
       return createJsonResponse({
         success: false,
-        error: 'NIM mahasiswa tidak ditemukan dalam permintaan.'
+        error: 'NIM mahasiswa tidak disertakan dalam permintaan.'
       });
     }
 
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getActiveSheet();
+    // 1. Cari sheet target berdasarkan Nama atau GID
+    var targetSheet = null;
+    if (targetSheetName) {
+      targetSheet = ss.getSheetByName(targetSheetName);
+    }
+    if (!targetSheet && targetGid) {
+      var sheets = ss.getSheets();
+      for (var s = 0; s < sheets.length; s++) {
+        if (sheets[s].getSheetId().toString() === targetGid) {
+          targetSheet = sheets[s];
+          break;
+        }
+      }
+    }
 
-    // 1. Verifikasi Keamanan: Pastikan email pengirim berstatus Admin: TRUE
-    if (!isAuthorizedAdmin(sheet, userEmail)) {
+    // 2. Verifikasi Keamanan Admin
+    var isAuth = isAuthorizedAdmin(targetSheet, userEmail) || isAuthorizedAdmin(primarySheet, userEmail);
+    if (!isAuth) {
       return createJsonResponse({
         success: false,
         error: 'Akses ditolak: Email ' + (userEmail || '(anonim)') + ' bukan Admin di Google Spreadsheet ini.'
       });
     }
 
-    // 2. Cari Baris Mahasiswa berdasarkan NIM (Pencarian di Kolom C / Kolom 3)
-    var dataRange = sheet.getDataRange();
-    var values = dataRange.getValues();
-    var targetRowIndex = -1; // 1-indexed
-
-    // Baris data mahasiswa dimulai setelah header tabel (sekitar baris 8 ke bawah)
-    for (var i = 0; i < values.length; i++) {
-      var rowNim = (values[i][2] || '').toString().trim(); // Kolom C = index 2
-      if (rowNim === nim) {
-        targetRowIndex = i + 1; // Konversi ke 1-indexed baris spreadsheet
-        break;
+    // 3. Cari baris mahasiswa di sheet target
+    var targetRowIndex = -1;
+    if (targetSheet) {
+      var values = targetSheet.getDataRange().getValues();
+      for (var i = 0; i < values.length; i++) {
+        var rowNim = (values[i][2] || '').toString().trim(); // Kolom C = NIM
+        if (rowNim === nim) {
+          targetRowIndex = i + 1;
+          break;
+        }
       }
     }
 
+    // 4. FALLBACK GLOBAL: Jika belum ketemu di sheet target, cari di SELURUH sheet di spreadsheet ini!
     if (targetRowIndex === -1) {
+      var allSheets = ss.getSheets();
+      for (var s = 0; s < allSheets.length; s++) {
+        var candidateSheet = allSheets[s];
+        var cValues = candidateSheet.getDataRange().getValues();
+        for (var i = 0; i < cValues.length; i++) {
+          var cNim = (cValues[i][2] || '').toString().trim();
+          if (cNim === nim) {
+            targetSheet = candidateSheet;
+            targetSheetName = candidateSheet.getName();
+            targetRowIndex = i + 1;
+            break;
+          }
+        }
+        if (targetRowIndex !== -1) break;
+      }
+    }
+
+    if (targetRowIndex === -1 || !targetSheet) {
       return createJsonResponse({
         success: false,
-        error: 'Mahasiswa dengan NIM ' + nim + ' tidak ditemukan di spreadsheet.'
+        error: 'Mahasiswa dengan NIM ' + nim + ' tidak ditemukan di sheet "' + (targetSheetName || 'aktif') + '" maupun sheet lainnya di Google Spreadsheet.'
       });
     }
 
-    // 3. Tulis Nilai Baru ke Kolom yang Sesuai
+    // 5. Simpan Nilai ke Kolom yang Sesuai
     var updatedTasks = [];
     for (var taskId in scores) {
       if (scores.hasOwnProperty(taskId) && TASK_COLUMNS[taskId]) {
         var colIndex = TASK_COLUMNS[taskId];
         var rawVal = scores[taskId];
 
-        // Format nilai: jika null/kosong/' - ' beri '-', jika angka simpan sebagai number
         var cellVal;
         if (rawVal === null || rawVal === undefined || rawVal === '' || rawVal === '-') {
           cellVal = '-';
@@ -158,17 +277,17 @@ function doPost(e) {
           cellVal = isNaN(num) ? rawVal : num;
         }
 
-        sheet.getRange(targetRowIndex, colIndex).setValue(cellVal);
+        targetSheet.getRange(targetRowIndex, colIndex).setValue(cellVal);
         updatedTasks.push({ taskId: taskId, value: cellVal, col: colIndex });
       }
     }
 
-    // Paksa flush agar perubahan langsung tersimpan ke cloud
     SpreadsheetApp.flush();
 
     return createJsonResponse({
       success: true,
-      message: 'Nilai berhasil disimpan ke Google Sheets!',
+      message: 'Nilai berhasil disimpan ke sheet ' + targetSheet.getName() + ' di Google Spreadsheet!',
+      sheetName: targetSheet.getName(),
       nim: nim,
       updatedRow: targetRowIndex,
       updatedCount: updatedTasks.length,
@@ -194,8 +313,14 @@ function isAuthorizedAdmin(sheet, emailToCheck) {
   if (!emailToCheck) return false;
   emailToCheck = emailToCheck.trim().toLowerCase();
 
-  var values = sheet.getDataRange().getValues();
+  // Default super-admin emails
+  if (emailToCheck === 'wyatmaja@ugm.ac.id' || emailToCheck === 'brillianoputrapradhitya@mail.ugm.ac.id') {
+    return true;
+  }
 
+  if (!sheet) return false;
+
+  var values = sheet.getDataRange().getValues();
   for (var i = 0; i < values.length; i++) {
     var row = values[i];
     var rowEmail = (row[3] || '').toString().trim().toLowerCase(); // Kolom D = Email

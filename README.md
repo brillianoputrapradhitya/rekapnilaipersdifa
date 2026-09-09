@@ -36,10 +36,60 @@ Aplikasi ini dibuat secara khusus dengan **Zero-Build Architecture** (HTML5 murn
    - Rata-rata nilai keseluruhan kelas.
    - Total tugas terkumpul (*submission rate*).
 
-7. **Desain & Ekspor**:
-   - Toggle **Dark Mode / Light Mode** yang nyaman di mata.
-   - Fitur **Export CSV** untuk mengunduh rekap tabel saat ini ke format Excel/CSV.
-   - Print stylesheet bawaan untuk mencetak halaman secara rapi.
+7. **Navigasi Multi-Kelas & Reproducible**:
+   - Berpindah cepat antara **Kelas A** dan **Kelas C** melalui tombol navigasi kelas di bagian atas halaman.
+   - **Reproducible**: Sangat mudah menambah kelas baru (misalnya Kelas B, D, dst.) melalui tombol **+ Tambah Kelas** di website atau menambahkan 1 baris konfigurasi pada file `app.js`.
+   - **Deep Linking**: Dukungan query URL `?class=C` atau `?class=A` sehingga tautan spesifik kelas dapat langsung dibagikan ke mahasiswa.
+
+8. **Desain & Ekspor**:
+   - Toggle **Dark Mode / Light Mode** yang nyaman di mata dengan aksen warna resmi UGM (Navy & Gold).
+   - Fitur **Export CSV** untuk mengunduh rekap tabel kelas aktif ke format Excel/CSV.
+   - Print stylesheet bawaan untuk mencetak halaman atau kartu nilai mahasiswa secara rapi.
+
+---
+
+## 🎓 Panduan Navigasi & Menambah Kelas Baru (Reproducibility)
+
+Website ini telah mendukung multi-kelas secara otomatis:
+
+### Cara 1: Menambah Kelas Langsung dari Website (Paling Mudah)
+1. Klik tombol **+ Tambah Kelas** di bilah navigasi kelas (di bawah header).
+2. Masukkan **Nama Kelas** (misal: `Kelas B`).
+3. Masukkan **Nama Sheet** di Google Spreadsheet (misal: `PersDif B`).
+4. (Opsional) Masukkan **Sheet ID / GID** jika ada.
+5. Klik **Simpan & Buka Kelas**.
+6. Halaman dan data kelas baru akan langsung tersimpan di browser Anda dan dapat langsung diakses!
+
+### Cara 2: Menambah Kelas Permanen di Kode (`app.js`)
+Buka file `app.js`, lalu tambahkan objek kelas pada array `CONFIG.classes`:
+```javascript
+classes: [
+  {
+    id: 'A',
+    name: 'Kelas A',
+    sheetName: 'PersDif A',
+    gid: '1378678540',
+    badge: 'Persamaan Diferensial (Kelas A)',
+    title: 'Rekap Nilai Harian Persamaan Diferensial A 2026'
+  },
+  {
+    id: 'C',
+    name: 'Kelas C',
+    sheetName: 'PersDif C',
+    gid: '896165960',
+    badge: 'Persamaan Diferensial (Kelas C)',
+    title: 'Rekap Nilai Harian Persamaan Diferensial C 2026'
+  },
+  // Tambah kelas baru di sini:
+  {
+    id: 'B',
+    name: 'Kelas B',
+    sheetName: 'PersDif B',
+    badge: 'Persamaan Diferensial (Kelas B)',
+    title: 'Rekap Nilai Harian Persamaan Diferensial B 2026'
+  }
+]
+```
 
 ---
 
